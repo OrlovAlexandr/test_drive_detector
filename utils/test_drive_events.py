@@ -1,6 +1,8 @@
 from copy import copy
 from typing import TypedDict
 
+import pandas as pd
+
 from utils.geometry_utils import distance
 
 coordinates = [
@@ -95,6 +97,43 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
                 lots_states.append((timestamp, copy(lots_state)))
 
     return lots_states
+
+
+def get_parking_lot_status(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Indicate the status of parking lots at each timestamp.
+    The function iterates over each row of the DataFrame, comparing the current row with the previous row.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame with columns 'timestamp_ord', 'timestamp', and 'status'.
+
+    Returns:
+        pd.DataFrame: The updated DataFrame with the 'status' column.
+    """
+    # Initialize 'status' column
+    df['status'] = 'init'
+
+    # Get data columns that are not 'timestamp_ord', 'timestamp', and 'status'
+    data_cols = df.columns.difference(['timestamp_ord', 'timestamp', 'status'])
+
+    # Get previous rows for comparison
+    previous = df[data_cols].shift(1)
+
+    # Iterate over rows and compare current and previous states
+    for i in range(1, len(df)):
+        print(i)
+        current_row = df.loc[i, data_cols]
+        previous_row = previous.loc[i]
+        if current_row.equals(previous_row):
+            df.loc[i, 'status'] = 'unchanged'
+        # if current is True and previous is False, set status to 'arrive'
+        elif (current_row & ~previous_row).any():
+            df.loc[i, 'status'] = 'arrive'
+        # if current is False and previous is True, set status to 'depart'
+        elif (~current_row & previous_row).any():
+            df.loc[i, 'status'] = 'depart'
+
+    return df
 
 
 if __name__ == '__main__':

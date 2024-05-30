@@ -92,7 +92,7 @@ def calibrate_ranges(df: pd.DataFrame,
         df_calib = df_calib[df_calib['timestamp'] <= find_calibrate_end]
 
         # Get parking spaces with each radius
-        df_spaces_new = get_parking_spaces(df_calib, radius=15, threshold=0.9)
+        df_spaces_new = get_parking_spaces(df_calib, eps=15, threshold=0.9)
 
         # Add parking spaces order
         if order_left_right:

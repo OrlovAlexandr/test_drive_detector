@@ -1,6 +1,5 @@
 import os
 
-
 new_dirs = ['config', 'results/detections', 'results/videos', 'source/videos', 'source/models']
 
 for new_dir in new_dirs:
