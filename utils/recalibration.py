@@ -1,7 +1,7 @@
 # Find ranges with more than 4 cars with threshold of gaps
 import pandas as pd
 
-from utils.get_parking_spaces import get_parking_spaces
+from utils.process_parking_lot import get_parking_spaces
 
 
 def find_full_ranges(timestamps_full: list, max_gap: int=3) -> list:
@@ -56,7 +56,7 @@ def calibrate_ranges(df: pd.DataFrame,
     Args:
         df: dataframe with detections
         ranges: list of tuples (start_time, end_time)
-        limit_range: limit range for calibration in seconds
+        limit_range: limit range for calibration in seconds, to get rid of small ranges
         calibrate_duration: duration of calibration in seconds
         order_left_right: True if order left to right
 
@@ -64,7 +64,7 @@ def calibrate_ranges(df: pd.DataFrame,
         calibrate_ranges: list of tuples (start_time, end_time)
     """
     # Initialize dataframe to fill with parking spaces
-    df_spaces = pd.DataFrame(columns=['timestamp', 'space', 'cx', 'cy', 'radius'])
+    df_spaces = pd.DataFrame(columns=['timestamp', 'space', 'cx', 'cy', 'radius', 'timestamp_ord'])
 
     # Filter ranges with more than 5 seconds
     long_ranges = []
@@ -72,12 +72,13 @@ def calibrate_ranges(df: pd.DataFrame,
         if i[1] - i[0] > limit_range:
             long_ranges.append(i)
             # print(i)
-
+    print('long ranges:', (long_ranges))
     # Get start and end of each calibration
     calibrate_ranges = []
     for r in long_ranges:
         duration = r[1] - r[0]
         mean = (r[0] + r[1]) / 2
+        # print(r[0])
         # Get start and end of calibration based on mean
         calibrate_start = mean - calibrate_duration / 2
         calibrate_end = mean + calibrate_duration / 2
@@ -103,6 +104,8 @@ def calibrate_ranges(df: pd.DataFrame,
         # Add timestamp
         df_spaces_new = df_spaces_new.reset_index(names='space')
         df_spaces_new['timestamp'] = r[0]
+        print(df[df['timestamp'] == r[0]]['timestamp_ord'].min())
+        df_spaces_new['timestamp_ord'] = df[df['timestamp'] == r[0]]['timestamp_ord'].min()
 
         # Append results to dataframe
         df_spaces = pd.concat([df_spaces, df_spaces_new], ignore_index=True)

@@ -1,46 +1,20 @@
 from copy import copy
-from typing import TypedDict
+from typing import TypedDict, Dict, List, Tuple
 
+import numpy as np
 import pandas as pd
 
 from utils.geometry_utils import distance
-
-coordinates = [
-    ((500, 500), 1),
-    ((540, 500), 1),
-    ((500, 500), 2),
-    ((540, 500), 2),
-    ((500, 500), 3),
-    ((540, 500), 3),
-    ((500, 500), 4),
-    ((540, 500), 4),
-    ((540, 500), 5),
-    ((500, 1000), 5),
-    ((500, 1000), 6),
-    ((540, 1000), 6),
-    ((500, 1000), 7),
-    ((500, 1000), 8),
-    ((500, 500), 9),
-    ((500, 500), 10),
-    ((500, 500), 11),
-    ((500, 500), 12),
-    ((500, 500), 13),
-    ((500, 500), 14),
-]
-
-parking_lot_areas = [
-    (1, (500, 500), 10),
-    (2, (550, 500), 20),
-]
 
 
 class Coordinate(TypedDict):
     x: float
     y: float
-    timestamp: float
+    timestamp: int
 
 
-def get_coordinates(coordinates: list[tuple[tuple[float, float], float]]) -> list[Coordinate]:
+def get_coordinates(coordinates: list[tuple[tuple[float, float], int]]) -> list[Coordinate]:
+    # Get coordinates from detections with timestamp
     coordinate_list = []
     for coord, timestamp in coordinates:
         coordinate_list.append(Coordinate(x=coord[0], y=coord[1], timestamp=timestamp))
@@ -48,24 +22,36 @@ def get_coordinates(coordinates: list[tuple[tuple[float, float], float]]) -> lis
 
 
 class ParkingLot(TypedDict):
+    timestamp: int
     position: int
     center_xy: tuple[float, float]
     radius: float
 
 
-def get_parking_lots(parking_lot_areas: list[tuple[float, tuple[float, float], float]]) -> list[ParkingLot]:
+def get_parking_lots(parking_lot_areas: list[tuple[int, int, tuple[float, float], float]]) -> list[ParkingLot]:
+    # Get parking lot list from parking lot areas
     parking_lot_list = []
-    for position, center, radius in parking_lot_areas:
-        parking_lot_list.append(ParkingLot(position=position, center_xy=center, radius=radius))
+    for timestamp, position, center, radius in parking_lot_areas:
+        parking_lot_list.append(ParkingLot(timestamp=timestamp, position=position, center_xy=center, radius=radius))
     return parking_lot_list
 
 
 def detect_events(coordinates: list[tuple[tuple[float, float], int]],
                   parking_lot_areas: list[
-                      tuple[int, tuple[float, float], float]
-                  ]) -> None:
-    lots_states = []
-    slide_window_in_frames = 10
+                      tuple[int, int, tuple[float, float], float]
+                  ]) -> dict[int, list[tuple[int, bool]]]:
+    """
+    Detect events from coordinates and parking lot areas
+    Args:
+        coordinates: list[tuple[tuple[float, float], int]] - list of coordinates with timestamp
+        parking_lot_areas: list[tuple[int, int, tuple[float, float], float]] - list of parking lot areas with
+            timestamp, position, center, radius
+
+    Returns:
+        dict[int, list[tuple[int, bool]]] - dict with lot position as key and list of tuples with timestamp and state
+    """
+    all_lots_states = {}
+    slide_window_in_frames = 100
     probability_threshold = 0.9
     coords = get_coordinates(coordinates)
     lots = get_parking_lots(parking_lot_areas)
@@ -73,15 +59,23 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
         lot['position']: set()
         for lot in lots
     }
+    lots_timestamps = np.array(list(set([lot['timestamp'] for lot in lots])))
+    print('lots_timestamps:', lots_timestamps)
     for coord in coords:
         for lot in lots:
-            if distance(lot['center_xy'], (coord['x'], coord['y'])) <= lot['radius']:
-                lots_coords[lot['position']].add(coord['timestamp'])
+            previous_lot_timestamp = lots_timestamps[coord['timestamp'] >= lots_timestamps].max()
+            # print('previous_lot_timestamp:', previous_lot_timestamp)
+            # print('lot:', lot)
+            if lot['timestamp'] == previous_lot_timestamp:
+                if distance(lot['center_xy'], (coord['x'], coord['y'])) <= lot['radius']:
+                    lots_coords[lot['position']].add(coord['timestamp'])
+                    # break
     lots_state: dict[int, bool] = {
         lot['position']: True
         for lot in lots
     }
     for lot_position, lot_timestamps_busy in lots_coords.items():
+        lots_states = []
         for timestamp in range(1, max(lot_timestamps_busy) + 1):
             hits = 0
             for frame in range(max(timestamp - slide_window_in_frames + 1, 0), timestamp + 1):
@@ -94,48 +88,6 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
             probability = hits / slide_window_in_frames
             if probability >= probability_threshold:
                 lots_state[lot_position] = not lots_state[lot_position]
-                lots_states.append((timestamp, copy(lots_state)))
-
-    return lots_states
-
-
-def get_parking_lot_status(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Indicate the status of parking lots at each timestamp.
-    The function iterates over each row of the DataFrame, comparing the current row with the previous row.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame with columns 'timestamp_ord', 'timestamp', and 'status'.
-
-    Returns:
-        pd.DataFrame: The updated DataFrame with the 'status' column.
-    """
-    # Initialize 'status' column
-    df['status'] = 'init'
-
-    # Get data columns that are not 'timestamp_ord', 'timestamp', and 'status'
-    data_cols = df.columns.difference(['timestamp_ord', 'timestamp', 'status'])
-
-    # Get previous rows for comparison
-    previous = df[data_cols].shift(1)
-
-    # Iterate over rows and compare current and previous states
-    for i in range(1, len(df)):
-        print(i)
-        current_row = df.loc[i, data_cols]
-        previous_row = previous.loc[i]
-        if current_row.equals(previous_row):
-            df.loc[i, 'status'] = 'unchanged'
-        # if current is True and previous is False, set status to 'arrive'
-        elif (current_row & ~previous_row).any():
-            df.loc[i, 'status'] = 'arrive'
-        # if current is False and previous is True, set status to 'depart'
-        elif (~current_row & previous_row).any():
-            df.loc[i, 'status'] = 'depart'
-
-    return df
-
-
-if __name__ == '__main__':
-    lots_states = detect_events(coordinates, parking_lot_areas)
-    print(lots_states)
+                lots_states.append((timestamp - slide_window_in_frames, copy(lots_state[lot_position])))
+        all_lots_states[lot_position] = lots_states
+    return all_lots_states

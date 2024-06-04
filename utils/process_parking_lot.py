@@ -91,3 +91,32 @@ def get_crop_from_vertices(vertices=None, padding: int = 50, video_path: str = '
         crop = []
 
     return crop
+
+
+def get_order(parking_spaces: pd.DataFrame) -> bool:
+    """
+    Args:
+        parking_spaces (pd.DataFrame): DataFrame with median coordinates of each parking space
+    Returns:
+        order_left_right (bool): "True" if left-to-right, "False" if bottom-to-top
+    """
+    spaces_width = parking_spaces['cx'].max() - parking_spaces['cx'].min()
+    spaces_height = parking_spaces['cy'].max() - parking_spaces['cy'].min()
+    order_left_right = True if spaces_width > spaces_height else False
+    return order_left_right
+
+
+def apply_order(parking_spaces: pd.DataFrame, order_left_right: bool = True) -> pd.DataFrame:
+    """
+    Args:
+        parking_spaces (pd.DataFrame): DataFrame with median coordinates of each parking space
+        order_left_right (bool): "True" if left-to-right, "False" if bottom-to-top
+    Returns:
+        parking_spaces (pd.DataFrame): DataFrame with sorted order of each parking space
+    """
+    if order_left_right:
+        parking_spaces = parking_spaces.sort_values(by='cx').reset_index(drop=True)
+    else:
+        parking_spaces = parking_spaces.sort_values(by='cy', ascending=False).reset_index(drop=True)
+    parking_spaces = parking_spaces.reset_index(names='space')
+    return parking_spaces

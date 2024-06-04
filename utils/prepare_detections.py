@@ -26,7 +26,16 @@ def process_frame(timestamp: float, df: pd.DataFrame, eps: float = 10, min_sampl
 # Function for parallel processing
 def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples: int = 1,
                                  n_jobs: int = -1) -> pd.DataFrame:
-    """Parallel processing of process_frame function."""
+    """Parallel processing of process_frame function.
+    Args:
+        df (pd.DataFrame): dataframe with detections
+        eps (float, optional): eps value for DBSCAN. Defaults to 10.
+        min_samples (int, optional): min_samples value for DBSCAN. Defaults to 1.
+        n_jobs (int, optional): number of parallel jobs. Defaults to -1.
+
+    Returns:
+        pd.DataFrame: dataframe with filtered points
+    """
     timestamps = df['timestamp'].unique()
     results = (Parallel(n_jobs=n_jobs)
                (delayed(process_frame)(timestamp, df, eps, min_samples) for timestamp in timestamps))
@@ -36,7 +45,14 @@ def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples:
 
 
 def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int, int]]) -> pd.DataFrame:
-    """Prepare detections. Change bbox coordinates to center coordinates and filter close points."""
+    """Prepare detections. Change bbox coordinates to center coordinates and filter close points.
+    Args:
+        detections (np.ndarray): array with detections
+        parking_vertices (List[Tuple[int, int]]): list with parking vertices
+
+    Returns:
+        pd.DataFrame: dataframe with filtered points
+    """
     # Get the center points
     centers = get_center_points(detections[:, 3:7])
 
@@ -47,30 +63,19 @@ def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int,
     # Get DataFrame from array
     columns = ['timestamp', 'frame', 'confidence', 'cx', 'cy', 'x1', 'y1', 'x2', 'y2']
     df_coords = pd.DataFrame(detection_coords, columns=columns)
-    # print(df_centers)
 
     # Filter close points
     df_clean = filter_close_points_parallel(df_coords, eps=10, min_samples=1)
 
-    # df_clean_path = './source/detections/temp/df_centers_clean.parquet'
-    # os.makedirs(os.path.dirname(df_clean_path), exist_ok=True)
-    # if os.path.exists(df_clean_path):
-    #     df_clean = pd.read_parquet(df_clean_path)
-    # else:
-    #     print('filter close points')
-    #     df_clean = filter_close_points_parallel(df_centers, eps=10, min_samples=1)
-    #     df_clean.to_parquet(df_clean_path)
-
     # Check if points are inside the polygon
-    # points = np.array(df_clean[['cx', 'cy']]
     points = df_clean[['cx', 'cy']].values
     df_clean['inside_polygon'] = vertices_in_polygon(points, parking_vertices)
-    # print(df_clean.head(50))
 
     # Filter points that are inside the polygon
     df_clean = df_clean[df_clean['inside_polygon'] == True][['timestamp', 'frame',
                                                              'confidence', 'cx', 'cy',
                                                              'x1', 'y1', 'x2', 'y2']].reset_index(drop=True)
-    # print(df_clean.columns)
+
+    df_clean['timestamp_ord'] = pd.factorize(df_clean['timestamp'])[0] + 1
 
     return df_clean
