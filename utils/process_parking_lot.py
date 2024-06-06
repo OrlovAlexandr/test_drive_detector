@@ -6,7 +6,8 @@ import pandas as pd
 from sklearn.cluster import DBSCAN
 
 
-def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9) -> tuple[Any, bool]:
+def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9,
+                       space_size: float = 0.5) -> tuple[Any, bool]:
     """
     Get parking spaces with each radius based on the bbox size
 
@@ -14,6 +15,7 @@ def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9
         df (pd.DataFrame): DataFrame with detections
         eps (float, optional): Maximum distance between two samples for DBSCAN clustering.
         threshold (float, optional): Threshold for filtering clusters.
+        space_size (float, optional): Size of the parking space, calculated as a fraction of the bbox minimum side.
 
     Returns:
         median_coords (pd.DataFrame): DataFrame with median coordinates of each parking space
@@ -53,17 +55,16 @@ def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9
     median_height = df_filtered.groupby('cluster')['height'].median().reset_index()
     # Get min side of the bbox and calculate radius
     sides = pd.merge(median_width, median_height, on='cluster')
-    # print(sides)
     sides['min_side'] = sides.apply(lambda x: x['width'] if x['width'] < x['height'] else x['height'], axis=1)
-    sides['radius'] = sides['min_side'] / 4
+    sides['radius'] = sides['min_side'] * (space_size / 2)
+    # Concatenate median coordinates with radius
     median_coords = pd.concat([median_centers, sides['radius']], axis=1)
-
     median_coords = median_coords[['cx', 'cy', 'radius']].reset_index(drop=True)
 
     return median_coords
 
 
-def get_crop_from_vertices(vertices=None, padding: int = 50, video_path: str = '') -> list:
+def calc_crop_from_vertices(vertices: list=None, padding: int = 50, video_path: str = '') -> list:
     """
     Calculate the crop region from a list of vertices.
 

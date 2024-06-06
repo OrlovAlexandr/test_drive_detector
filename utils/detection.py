@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import numpy as np
 import torch
@@ -5,7 +7,7 @@ from ultralytics import YOLO
 
 
 def detect(video_path: str,
-           crop_xyxy=[],
+           crop_xyxy: list = [],
            n_frame: int = 1,
            frame_range: tuple = (0, np.inf)) -> np.ndarray:
     """
@@ -34,7 +36,7 @@ def detect(video_path: str,
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(fps, width, height)
+    print(f"FPS: {fps}, resolution: {width}x{height}")
 
     if crop_xyxy:
         # Crop frame
@@ -48,7 +50,7 @@ def detect(video_path: str,
         crop_x2 = width
         crop_y2 = height
 
-    boxes = np.empty((0, 7), float)
+    detections = np.empty((0, 7), float)
 
     while True:
         ret, frame = cap.read()
@@ -61,33 +63,36 @@ def detect(video_path: str,
         if frame_number > frame_range[1]:
             break
 
-        if frame_number % 500 == 0:
-            print(frame_number)
 
         if frame_number % n_frame == 0 and frame_number >= frame_range[0]:
+            if frame_number % 500 == 0:
+                print('Frame:', frame_number)
+
             # Crop frame
             frame_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
 
             # Detect objects
             results = model.predict(frame_crop, classes=[2, 5, 6, 7], verbose=False)
 
+            frame_result = None
             for result in results:
+                # Get boxes torch tensors
                 result_boxes = result.boxes
                 cls = result_boxes.cls.unsqueeze(1)
                 conf = result_boxes.conf.unsqueeze(1)
                 xyxy = result_boxes.xyxy
                 fill_frame_number = torch.full_like(cls, frame_number)
-
+                # Concatenate in specific order
                 frame_result = torch.cat((fill_frame_number, cls, conf, xyxy), dim=1).cpu().numpy()
-                # Return to original coordinates
+                # Return to original coordinates without cropping
                 frame_result[:, [3, 4, 5, 6]] += [crop_x1, crop_y1, crop_x1, crop_y1]
 
-            boxes = np.vstack((boxes, frame_result))
+            detections = np.vstack((detections, frame_result))
 
     cap.release()
     cv2.destroyAllWindows()
 
-    return boxes
+    return detections
 
 
 def detect_with_timestamps(videos_dict: dict, crop: list = [],
@@ -108,6 +113,7 @@ def detect_with_timestamps(videos_dict: dict, crop: list = [],
     all_detections = np.empty((0, 8), float)
     for video_path, created_time in videos_dict.items():
         # Detect objects
+        print('Videofile:', os.path.split(video_path)[1])
         detections = detect(video_path, crop_xyxy=crop, n_frame=n_frame,
                             frame_range=frame_range)
 

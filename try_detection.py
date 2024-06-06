@@ -5,14 +5,14 @@ from utils.prepare_detections import prepare_detections
 
 if __name__ == "__main__":
     # INPUTS
-    LOT_PATH = 'results/parking_lot/parking_lot.yml'
+    LOT_PATH = 'results/parking_lot_ii/parking_lot.yml'
     # Videos should be selected on the basis of the workday range
     # The dictionary should be compiled from the selected videos and their created timestamps
-    VIDEO_DATA = {'./source/videos/parking_lot_ii_001.mp4': 1716791179.0,
-                  './source/videos/parking_lot_ii_002.mp4': 1716791323.88}
+    VIDEO_DATA = {'./source/parking_lot_ii/videos/parking_lot_ii_001.mp4': 1716791179.0,
+                  './source/parking_lot_ii/videos/parking_lot_ii_002.mp4': 1716791323.88}
 
     # OUTPUTS
-    DETECTIONS_DF_PATH = 'results/detections/detections_df.parquet'
+    DETECTIONS_DF_PATH = 'results/parking_lot_ii/detections_df.parquet'
 
     # MAIN PROCESS
     # The cropped area should be the size of a parking lot with some padding.
@@ -20,13 +20,14 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
         crop = config['crop_xyxy']
         parking_polygon = list(config['parking_polygon'].values())
-    print(crop)
+    print('crop coordinates:', crop)
 
     detections = detect_with_timestamps(VIDEO_DATA, crop)
 
     # Prepare detections to get centers
     df = prepare_detections(detections, parking_polygon)
 
+    # Save detections to parquet file
     df.to_parquet(DETECTIONS_DF_PATH)
     print(df.columns)
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     # # =======================================================
     # # TEST VISUAL
-    # video_path = 'source/videos/parking_lot_ii_001.mp4'
+    # video_path = 'source/parking_lot_ii/videos/parking_lot_ii_001.mp4'
     #
     # config_path = 'config/parking_lot.yml'
     # if os.path.isfile(config_path):

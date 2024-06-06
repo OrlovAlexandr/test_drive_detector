@@ -4,7 +4,7 @@ import pandas as pd
 from utils.process_parking_lot import get_parking_spaces
 
 
-def find_full_ranges(timestamps_full: list, max_gap: int=3) -> list:
+def get_full_lot_ranges(timestamps_full: list, max_gap: int=3) -> list:
     """
     Find ranges with more than full parking lot
     Args:
@@ -29,21 +29,21 @@ def find_full_ranges(timestamps_full: list, max_gap: int=3) -> list:
 
     return ranges
 
-def full_parking_lot_ranges(df: pd.DataFrame, full_count: int=4) -> list:
+def full_parking_lot_ranges(df: pd.DataFrame, spaces_number: int=4) -> list:
     """
     Args:
         df: dataframe with detections
-        full_count: number of cars in full parking lot
+        spaces_number: number of cars in full parking lot
 
     Returns:
         ranges: list of tuples (start_time, end_time)
     """
     # Count cars per timestamp
     car_count_per_timestamp = df.groupby('timestamp').size()
-    # Find timestamps with more than N cars
-    timestamps_full_parking = car_count_per_timestamp[car_count_per_timestamp >= full_count].index.values
-    # Find ranges
-    ranges = find_full_ranges(timestamps_full_parking)
+    # Get timestamps with more than N cars
+    timestamps_full_parking = car_count_per_timestamp[car_count_per_timestamp >= spaces_number].index.values
+    # Get ranges
+    ranges = get_full_lot_ranges(timestamps_full_parking)
     return ranges
 
 def calibrate_ranges(df: pd.DataFrame,
@@ -76,12 +76,11 @@ def calibrate_ranges(df: pd.DataFrame,
     # Get start and end of each calibration
     calibrate_ranges = []
     for r in long_ranges:
-        duration = r[1] - r[0]
-        mean = (r[0] + r[1]) / 2
-        # print(r[0])
         # Get start and end of calibration based on mean
+        mean = (r[0] + r[1]) / 2
         calibrate_start = mean - calibrate_duration / 2
         calibrate_end = mean + calibrate_duration / 2
+
         # Find start and end of calibration based on real timestamp
         find_calibrate_start = df[df['timestamp'] <= calibrate_start]['timestamp'].max()
         find_calibrate_end = df[df['timestamp'] >= calibrate_end]['timestamp'].min()
@@ -104,7 +103,6 @@ def calibrate_ranges(df: pd.DataFrame,
         # Add timestamp
         df_spaces_new = df_spaces_new.reset_index(names='space')
         df_spaces_new['timestamp'] = r[0]
-        print(df[df['timestamp'] == r[0]]['timestamp_ord'].min())
         df_spaces_new['timestamp_ord'] = df[df['timestamp'] == r[0]]['timestamp_ord'].min()
 
         # Append results to dataframe

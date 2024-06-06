@@ -1,4 +1,3 @@
-import os
 from typing import List, Tuple
 
 import numpy as np
@@ -15,6 +14,7 @@ def process_frame(timestamp: float, df: pd.DataFrame, eps: float = 10, min_sampl
     timestamp_data = df[df['timestamp'] == timestamp].copy()
     coords = timestamp_data[['cx', 'cy']].values
 
+    # Get clusters with DBSCAN to get one point from each cluster
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(coords)
     timestamp_data.loc[:, 'cluster'] = db.labels_
 
@@ -36,10 +36,16 @@ def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples:
     Returns:
         pd.DataFrame: dataframe with filtered points
     """
-    timestamps = df['timestamp'].unique()
-    results = (Parallel(n_jobs=n_jobs)
-               (delayed(process_frame)(timestamp, df, eps, min_samples) for timestamp in timestamps))
 
+    # Get unique timestamps from dataframe
+    timestamps = df['timestamp'].unique()
+
+    # Parallel processing of process_frame function
+    results = (Parallel(n_jobs=n_jobs)
+               (delayed(process_frame)(timestamp, df, eps, min_samples)
+                for timestamp in timestamps))
+
+    # Concatenate results into one dataframe
     filtered_df = pd.concat(results).reset_index(drop=True)
     return filtered_df
 
@@ -53,10 +59,10 @@ def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int,
     Returns:
         pd.DataFrame: dataframe with filtered points
     """
-    # Get the center points
+    # Get the center points from the bbox coordinates
     centers = get_center_points(detections[:, 3:7])
 
-    # Replace bbox coordinates with center coordinates
+    # Extend bbox coordinates with center coordinates
     detection_centers = np.append(detections[:, [7, 0, 2]], centers, axis=1)
     detection_coords = np.append(detection_centers, detections[:, 3:7], axis=1)
 
@@ -65,17 +71,17 @@ def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int,
     df_coords = pd.DataFrame(detection_coords, columns=columns)
 
     # Filter close points
-    df_clean = filter_close_points_parallel(df_coords, eps=10, min_samples=1)
+    df_filtered = filter_close_points_parallel(df_coords, eps=10, min_samples=1)
 
     # Check if points are inside the polygon
-    points = df_clean[['cx', 'cy']].values
-    df_clean['inside_polygon'] = vertices_in_polygon(points, parking_vertices)
+    points = df_filtered[['cx', 'cy']].values
+    df_filtered['inside_polygon'] = vertices_in_polygon(points, parking_vertices)
 
     # Filter points that are inside the polygon
-    df_clean = df_clean[df_clean['inside_polygon'] == True][['timestamp', 'frame',
+    df_filtered = df_filtered[df_filtered['inside_polygon'] == True][['timestamp', 'frame',
                                                              'confidence', 'cx', 'cy',
                                                              'x1', 'y1', 'x2', 'y2']].reset_index(drop=True)
 
-    df_clean['timestamp_ord'] = pd.factorize(df_clean['timestamp'])[0] + 1
+    df_filtered['timestamp_ord'] = pd.factorize(df_filtered['timestamp'])[0] + 1
 
-    return df_clean
+    return df_filtered

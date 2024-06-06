@@ -1,8 +1,7 @@
 from copy import copy
-from typing import TypedDict, Dict, List, Tuple
+from typing import TypedDict
 
 import numpy as np
-import pandas as pd
 
 from utils.geometry_utils import distance
 
@@ -64,8 +63,6 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
     for coord in coords:
         for lot in lots:
             previous_lot_timestamp = lots_timestamps[coord['timestamp'] >= lots_timestamps].max()
-            # print('previous_lot_timestamp:', previous_lot_timestamp)
-            # print('lot:', lot)
             if lot['timestamp'] == previous_lot_timestamp:
                 if distance(lot['center_xy'], (coord['x'], coord['y'])) <= lot['radius']:
                     lots_coords[lot['position']].add(coord['timestamp'])
