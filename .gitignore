@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Pytest
+.pytest_cache/
+
+# Ruff
+.ruff_cache/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Настройки PyCharm
+.idea/
+
+# Настройки директории в macOS
+.DS_Store
+.DS_Store?
+
+# Настройки директории в Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
