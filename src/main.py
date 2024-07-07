@@ -9,7 +9,7 @@ from nicegui import events as nicegui_events
 from nicegui import ui
 from starlette.responses import RedirectResponse
 
-from src import detection
+from src import detect_test_drives
 from src import image_ops
 from src import video_ops
 from src.parking_lot import ParkingLot
@@ -27,6 +27,9 @@ HUMAN_READABLE_DATE_TIME_FORMAT = '%d.%m.%Y %H:%M:%S'
 HUMAN_READABLE_DATE_FORMAT = '%d.%m.%Y'
 
 MINIMUM_POINT_COUNT = 3
+
+FIRST_FRAME_WIDTH = 640
+FIRST_FRAME_HEIGHT = 360
 
 
 @ui.refreshable
@@ -59,7 +62,7 @@ def lot_spaces_list(spaces: list[ParkingSpace]) -> None:
 
 @ui.refreshable
 def parking_zone_preview(
-        points: list[tuple[int, int]],
+        points: list[tuple[float, float]],
         on_click: Callable,
         image: bytes | None,
 ) -> None:
@@ -107,14 +110,17 @@ def parking_lot_setup_area(
                     )
                 with ui.step('Разметка'):
                     if parking_lot.active_zone_video:
-                        video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video)
+                        video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video,
+                                                    FIRST_FRAME_WIDTH, FIRST_FRAME_HEIGHT)
                         first_frame = video.get_first_frame()
                     else:
                         first_frame = None
-                    points: list[tuple[int, int]] = []
+                    points: list[tuple[float, float]] = []
 
                     def add_point(event: nicegui_events.MouseEventArguments):
-                        points.append((int(event.image_x), int(event.image_y)))
+                        point_x = int(event.image_x) / FIRST_FRAME_WIDTH
+                        point_y = int(event.image_y) / FIRST_FRAME_HEIGHT
+                        points.append((point_x, point_y))
                         parking_zone_preview.refresh(points=points, on_click=add_point, image=first_frame)
 
                     def delete_all_points() -> None:
@@ -156,7 +162,8 @@ def parking_lot_setup_area(
             with ui.step('Разметка мест'):
                 spaces = []
                 if parking_lot.active_zone_video:
-                    video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video)
+                    video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video,
+                                                FIRST_FRAME_WIDTH, FIRST_FRAME_HEIGHT)
                     first_frame_2 = image_ops.bytes_to_b64_embedded_image(
                         image_ops.draw_parking_lot_map(
                             video.get_first_frame(),
@@ -177,7 +184,7 @@ def parking_lot_setup_area(
                     analyze_button.disable()
                     analyze_progress.set_value(0.5)
                     found_spaces = detect_parking_spaces(
-                        video_path=parking_lot.active_zone_video,
+                        video_path=str(INBOX_DIRECTORY / parking_lot.active_zone_video),
                         parking_polygon=parking_lot.active_zone,
                     )
                     analyze_progress.set_value(1)
@@ -214,7 +221,8 @@ def parking_lot_setup_area(
     if parking_lot is not None and parking_lot.state == ParkingLotState.READY:
         ui.label(text='Разметка выполнена')
         ui.label(text=f'Мест: {len(parking_lot.parking_spaces)}')
-        video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video)
+        video = video_ops.VideoFile(INBOX_DIRECTORY / parking_lot.active_zone_video,
+                                    FIRST_FRAME_WIDTH, FIRST_FRAME_HEIGHT)
         if parking_lot.active_zone_video:
             first_frame_3 = image_ops.bytes_to_b64_embedded_image(
                 image_ops.draw_parking_lot_map(
@@ -302,7 +310,7 @@ class TestDriveDetector:
             return
         on_start()
         ui.notify('Запущено обнаружение тест-драйвов', position='top-right', type='positive')
-        detected_test_drives = detection.detect_test_drives(
+        detected_test_drives = detect_test_drives.detect_test_drives(
             video_paths=[
                 path
                 for name, path in sorted(self._video_file_paths.items(), key=lambda item: item[0])
@@ -312,10 +320,12 @@ class TestDriveDetector:
                 space.number: {'cx': space.position[0], 'cy': space.position[1], 'radius': space.radius}
                 for space in self._lot.parking_spaces
             },
-            output_video_dir=str(OUTPUT_DIRECTORY),
+            lot_id=self._lot.id,
+            output_video_dir=OUTPUT_DIRECTORY,
         )
         for test_drive in detected_test_drives:
             self._test_drive_registry.add_test_drive(test_drive)
+        # self._test_drive_registry.commit()
         ui.notify('Завершено обнаружение тест-драйвов', position='top-right', type='positive')
 
 

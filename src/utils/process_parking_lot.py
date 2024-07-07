@@ -1,24 +1,17 @@
-from typing import Any
-
 import cv2
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
 
 
-def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9,
-                       space_size: float = 0.5) -> tuple[Any, bool]:
+def get_parking_spaces(
+        df: pd.DataFrame,
+        eps: float = 15,
+        threshold: float = 0.9,
+        space_size: float = 0.5
+) -> pd.DataFrame:
     """
     Get parking spaces with each radius based on the bbox size
-
-    Args:
-        df (pd.DataFrame): DataFrame with detections
-        eps (float, optional): Maximum distance between two samples for DBSCAN clustering.
-        threshold (float, optional): Threshold for filtering clusters.
-        space_size (float, optional): Size of the parking space, calculated as a fraction of the bbox minimum side.
-
-    Returns:
-        median_coords (pd.DataFrame): DataFrame with median coordinates of each parking space
     """
 
     # Point coordinates
@@ -64,18 +57,13 @@ def get_parking_spaces(df: pd.DataFrame, eps: float = 15, threshold: float = 0.9
     return median_coords
 
 
-def calc_crop_from_vertices(vertices: list=None, padding: int = 50, video_path: str = '') -> list:
+def calc_crop_from_vertices(
+        vertices: list = None,
+        padding: int = 50,
+        video_path: str = ''
+) -> list[int]:
     """
     Calculate the crop region from a list of vertices.
-
-    Args:
-        vertices (list): A list of vertices of the polygon.
-        padding (int): The padding to be applied around the vertices to create the crop region.
-            Default is 50.
-        video_path (str): The path to the video file. Default is an empty string.
-
-    Returns:
-        crop (list): A list representing the crop region in XYXY format.
     """
     if vertices is not None:
         x = np.array(vertices)[:, 0]
@@ -96,6 +84,7 @@ def calc_crop_from_vertices(vertices: list=None, padding: int = 50, video_path: 
 
 def get_order(parking_spaces: pd.DataFrame) -> bool:
     """
+    Calculate the order of the parking spaces based on the coordinates.
     Args:
         parking_spaces (pd.DataFrame): DataFrame with median coordinates of each parking space
     Returns:
@@ -107,13 +96,12 @@ def get_order(parking_spaces: pd.DataFrame) -> bool:
     return order_left_right
 
 
-def apply_order(parking_spaces: pd.DataFrame, order_left_right: bool = True) -> pd.DataFrame:
+def apply_order(
+        parking_spaces: pd.DataFrame,
+        order_left_right: bool = True
+) -> pd.DataFrame:
     """
-    Args:
-        parking_spaces (pd.DataFrame): DataFrame with median coordinates of each parking space
-        order_left_right (bool): "True" if left-to-right, "False" if bottom-to-top
-    Returns:
-        parking_spaces (pd.DataFrame): DataFrame with sorted order of each parking space
+    Apply the order of the parking spaces based on the coordinates.
     """
     if order_left_right:
         parking_spaces = parking_spaces.sort_values(by='cx').reset_index(drop=True)

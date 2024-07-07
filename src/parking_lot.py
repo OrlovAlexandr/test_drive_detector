@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-
 JSON_DATABASE_FILE = Path('./parking_lots.json')
 
 
@@ -23,7 +22,7 @@ class InvalidStateError(Exception):
 @dataclass(frozen=True, kw_only=True)
 class ParkingSpace:
     number: int
-    position: tuple[int, int]
+    position: tuple[float, float]
     radius: float
 
     def to_dict(self) -> dict:
@@ -40,7 +39,6 @@ class ParkingSpace:
             position=cast(tuple[int, int], tuple(data['position'])),
             radius=data['radius'],
         )
-
 
 
 class ParkingLot:
@@ -81,7 +79,7 @@ class ParkingLot:
     def active_zone_video(self) -> str | None:
         return self._active_zone_video
 
-    def set_active_zone(self, points: list[tuple[int, int]]) -> None:
+    def set_active_zone(self, points: list[tuple[float, float]]) -> None:
         if self._state != ParkingLotState.PENDING_SETUP_ACTIVE_ZONE:
             raise InvalidStateError
         self._active_zone = points

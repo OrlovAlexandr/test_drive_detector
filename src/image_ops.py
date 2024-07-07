@@ -3,12 +3,17 @@ from collections.abc import Iterable
 
 import cv2
 import numpy as np
+from shapely import Polygon, Point
 
 from src.parking_lot import ParkingSpace
 
 
-def draw_polygon(image: np.ndarray, vertices: list[tuple[int, int]]) -> np.ndarray:
+def draw_polygon(image: np.ndarray, vertices: list[tuple[float, float]]) -> np.ndarray:
     """Draws a polygon on the given image."""
+    image_width = image.shape[1]
+    image_height = image.shape[0]
+    # convert vertices to pixels
+    vertices = [(int(x * image_width), int(y * image_height)) for x, y in vertices]
     if len(vertices) > 2:
         draw_closed_path(image, vertices)
     if len(vertices) > 0:
@@ -66,23 +71,66 @@ def draw_polygon_on_image_bytes(image_bytes: bytes, vertices: list[tuple[int, in
 
 def draw_parking_lot_map(
         image_data: bytes,
-        points: list[tuple[int, int]],
+        points: list[tuple[float, float]],
         spaces: Iterable[ParkingSpace] | None = None,
 ) -> bytes:
     image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
     image = draw_polygon(image, points)
     if spaces is not None:
+        image_width = image.shape[1]
+        image_height = image.shape[0]
         for space in spaces:
+            space_x = int(space.position[0] * image_width)
+            space_y = int(space.position[1] * image_height)
+            space_radius = int(space.radius * image_height)
             cv2.circle(
                 image,
-                (int(space.position[0] / 3), int(space.position[1] / 3)),
-                int(space.radius / 3),
-                (87, 212, 42),
-                2,
+                (space_x, space_y),
+                space_radius,
+                (255, 0, 0),
+                1,
+            )
+            cv2.circle(
+                image,
+                (space_x, space_y),
+                3,
+                (0, 255, 255),
+                -1,
+            )
+            cv2.putText(
+                image,
+                str(space.number),
+                (space_x + 3, space_y + 2),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 255),
+                1
             )
 
     _, image_bytes = cv2.imencode('.png', image)
     return image_bytes.tobytes()
+
+
+def distance(coord_a: tuple[float, float], coord_b: tuple[float, float]) -> float:
+    """Get the distance between two coordinates."""
+    x, y = coord_a[0] - coord_b[0], coord_a[1] - coord_b[1]
+    return (x ** 2 + y ** 2) ** 0.5
+
+
+def vertices_in_polygon(points: np.ndarray, polygon: list[tuple[float, float]]) -> np.ndarray:
+    """Check if points are inside a polygon."""
+    polygon = Polygon(polygon)  # Shapely Polygon
+    shapely_points = [Point(point) for point in points]  # Shapely Points
+    # Check if points are inside a polygon vectorized
+    return np.array([polygon.contains(point) for point in shapely_points])
+
+
+def get_center_points(vertices: np.ndarray) -> np.ndarray:
+    """Get the center points of a xyxy numpy array."""
+    center_xy = np.array([(vertices[:, 0] + vertices[:, 2]) / 2,
+                          (vertices[:, 1] + vertices[:, 3]) / 2]).transpose()
+
+    return center_xy
 
 
 def bytes_to_b64_embedded_image(image_bytes: bytes) -> str:

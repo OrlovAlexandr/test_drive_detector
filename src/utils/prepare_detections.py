@@ -5,7 +5,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 from sklearn.cluster import DBSCAN
 
-from utils.geometry_utils import get_center_points, vertices_in_polygon
+from src.image_ops import get_center_points, vertices_in_polygon
 
 
 # Filter close points in one frame function
@@ -26,15 +26,8 @@ def process_frame(timestamp: float, df: pd.DataFrame, eps: float = 10, min_sampl
 # Function for parallel processing
 def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples: int = 1,
                                  n_jobs: int = -1) -> pd.DataFrame:
-    """Parallel processing of process_frame function.
-    Args:
-        df (pd.DataFrame): dataframe with detections
-        eps (float, optional): eps value for DBSCAN. Defaults to 10.
-        min_samples (int, optional): min_samples value for DBSCAN. Defaults to 1.
-        n_jobs (int, optional): number of parallel jobs. Defaults to -1.
-
-    Returns:
-        pd.DataFrame: dataframe with filtered points
+    """
+    Parallel processing of process_frame function.
     """
 
     # Get unique timestamps from dataframe
@@ -79,8 +72,8 @@ def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int,
 
     # Filter points that are inside the polygon
     df_filtered = df_filtered[df_filtered['inside_polygon'] == True][['timestamp', 'frame',
-                                                             'confidence', 'cx', 'cy',
-                                                             'x1', 'y1', 'x2', 'y2']].reset_index(drop=True)
+                                                                      'confidence', 'cx', 'cy',
+                                                                      'x1', 'y1', 'x2', 'y2']].reset_index(drop=True)
 
     df_filtered['timestamp_ord'] = pd.factorize(df_filtered['timestamp'])[0] + 1
 
