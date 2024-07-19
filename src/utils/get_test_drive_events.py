@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 from typing import TypedDict
 
@@ -5,6 +6,10 @@ import numpy as np
 import pandas as pd
 
 from src.image_ops import distance
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Coordinate(TypedDict):
@@ -40,9 +45,7 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
                   parking_lot_areas: list[
                       tuple[int, int, tuple[float, float], float]
                   ]) -> dict[int, list[tuple[int, bool]]]:
-    """
-    Detect events from coordinates and parking lot areas
-    """
+    """Detect events from coordinates and parking lot areas."""
     all_lots_states = {}
     slide_window_in_frames = 100
     probability_threshold = 0.9
@@ -52,14 +55,14 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
         lot['position']: set()
         for lot in lots
     }
-    lots_timestamps = np.array(list(set([lot['timestamp'] for lot in lots])))
+    lots_timestamps = np.array(list({lot['timestamp'] for lot in lots}))
     for coord in coords:
         for lot in lots:
             previous_lot_timestamp = lots_timestamps[coord['timestamp'] >= lots_timestamps].max()
-            if lot['timestamp'] == previous_lot_timestamp:
-                if distance(lot['center_xy'], (coord['x'], coord['y'])) <= lot['radius']:
-                    lots_coords[lot['position']].add(coord['timestamp'])
-                    # break
+            distance_from_center = distance(lot['center_xy'], (coord['x'], coord['y']))
+            if lot['timestamp'] == previous_lot_timestamp and distance_from_center <= lot['radius']:
+                lots_coords[lot['position']].add(coord['timestamp'])
+                # break  # noqa: ERA001
     lots_state: dict[int, bool] = {
         lot['position']: True
         for lot in lots
@@ -84,17 +87,15 @@ def detect_events(coordinates: list[tuple[tuple[float, float], int]],
 
 
 def get_test_drive_events(detections: pd.DataFrame,
-                          reacalibrated_spaces: pd.DataFrame) -> dict[int, list[tuple[int, bool]]]:
-    """
-    Get test drive events with timestamps
-    """
-    print('Get test drive events...')
+                          recalibrated_spaces: pd.DataFrame) -> dict[int, list[tuple[int, bool]]]:
+    """Get test drive events with timestamps."""
+    logger.info('Get test drive events...')
     coord_list = detections.apply(
         lambda row: ((row['cx'].astype(float), row['cy'].astype(float)), row['timestamp_ord'].astype(int)),
         axis=1).tolist()
 
     # Get lot list with coordinates and radius in frames
-    lot_list = reacalibrated_spaces.apply(
+    lot_list = recalibrated_spaces.apply(
         lambda row: (row['timestamp_ord'], row['space'], (row['cx'], row['cy']), row['radius']),
         axis=1).tolist()
 
@@ -102,8 +103,6 @@ def get_test_drive_events(detections: pd.DataFrame,
     lots_states = detect_events(coord_list, lot_list)  # need to fix
 
     # Replace frames with timestamps
-    lots_states = {space: [(detections[detections['timestamp_ord'] == timestamp]['timestamp'].values[0], state)
-                           for timestamp, state in states]
-                   for space, states in lots_states.items()}
-
-    return lots_states
+    return {space: [(detections[detections['timestamp_ord'] == timestamp]['timestamp'].values[0], state)
+                    for timestamp, state in states]
+            for space, states in lots_states.items()}

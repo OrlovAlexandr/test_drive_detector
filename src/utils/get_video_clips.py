@@ -1,6 +1,7 @@
-import os.path
+import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 
 import cv2
@@ -10,7 +11,11 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from src.test_drive import TestDrive
 
+
 EVENT_DATE = '2024-06-15 8:00:00'
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def record_video(
@@ -19,14 +24,14 @@ def record_video(
         lots_states_sorted: dict[int, list[tuple[float, bool]]],
         video_input: str,
         video_output: str,
-        start: int = None,
-        end: int = None
+        start: int | None = None,
+        end: int | None = None,
 ) -> None:
-    print(f'Recording video... {video_input} -> {video_output}')
+    logger.info(f'Recording video... {video_input} -> {video_output}')
     video_start_time = video_time[video_input]
 
     lots_states_from_start = lots_states_sorted.copy()
-    for space_id in lots_states_from_start.keys():
+    for space_id in lots_states_from_start:
         if len(lots_states_from_start[space_id]) > 0:
             first_space_state = lots_states_from_start[space_id][0][1]
             if first_space_state:
@@ -59,7 +64,7 @@ def record_video(
         if not ret or (end and frame_num > end):
             break
         # Draw parking spaces and lots states
-        for space_id in lots_states_from_start.keys():
+        for space_id in lots_states_from_start:
 
             current_state = None
             for timestamp_, state in lots_states_from_start[space_id]:
@@ -78,7 +83,7 @@ def record_video(
                 text = f'{int(space_id)} free'
                 x1y1 = (int(row.cx + 10), int(row.cy - 18))
                 x2y2 = (int(row.cx + 90), int(row.cy + 5))
-            cv2.circle(frame, (int(row.cx), int(row.cy)), radius=int(5), color=color, thickness=-1)
+            cv2.circle(frame, (int(row.cx), int(row.cy)), radius=5, color=color, thickness=-1)
             cv2.rectangle(frame, x1y1, x2y2, color, -1)
             cv2.putText(
                 frame,
@@ -87,14 +92,8 @@ def record_video(
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 0, 0),
-                2
+                2,
             )
-
-        # # Show frame
-        # cv2.imshow('frame', frame)
-        #
-        # if cv2.waitKey(0) & 0xFF == ord('q'):
-        #     break
 
         output.write(frame)
 
@@ -120,7 +119,7 @@ def get_clip_params(timestamp: float, clip_duration: int, timestamp_offset: int)
 def find_clips(
         clip_time_params: dict,
         start_timestamp: float,
-        end_timestamp: float
+        end_timestamp: float,
 ) -> tuple[tuple[str, int], tuple[str, int]]:
     clip_start = clip_end = None
     for video_path, (video_start, video_end, video_fps) in clip_time_params.items():
@@ -139,7 +138,7 @@ def process_video_clips(
         output_video_dir: Path,
         lot_id: uuid.UUID,
         timestamp_offset: int = 15,
-        clip_duration: int = 30
+        clip_duration: int = 30,
 ) -> list[TestDrive]:
     output_video_dir.mkdir(parents=True, exist_ok=True)
 
@@ -150,7 +149,7 @@ def process_video_clips(
     lots_states_sorted = {key: sorted(value, key=lambda x: x[0]) for key, value in lots_states.items()}
 
     for space, states in lots_states_sorted.items():
-        space = int(float(space))
+        space_int = int(float(space))
         test_drive_number = 1
 
         for timestamp, state in states:
@@ -158,12 +157,12 @@ def process_video_clips(
             start_timestamp, end_timestamp = get_clip_params(
                 timestamp,
                 clip_duration,
-                timestamp_offset
+                timestamp_offset,
             )
             clip_start, clip_end = find_clips(
                 clip_time_params,
                 start_timestamp,
-                end_timestamp
+                end_timestamp,
             )
             if clip_end and clip_end[1] <= 1:
                 clip_end = None
@@ -175,11 +174,10 @@ def process_video_clips(
                 test_drive_id = uuid.uuid4()
 
             output_clip_path = output_video_dir / f'{test_drive_id}_{state_name}.mp4'
-            print()
-            print('Space:', space, 'State:', state_name, 'Test drive id:', test_drive_id)
-            print('Clip start:', clip_start)
-            print('Clip end:', clip_end)
-            print('Output clip path:', output_clip_path)
+            logger.info('\nSpace: %s, State: %s, Test drive id: %s', space_int, state_name, test_drive_id)
+            logger.info('Clip start: %s', clip_start)
+            logger.info('Clip end: %s', clip_end)
+            logger.info('Output clip path: %s', output_clip_path)
             if clip_start and clip_end and clip_start[0] == clip_end[0]:
                 temp_path = output_video_dir / 'temp.mp4'
                 record_video(
@@ -189,17 +187,17 @@ def process_video_clips(
                     clip_start[0],
                     str(temp_path),
                     clip_start[1],
-                    clip_end[1]
+                    clip_end[1],
                 )
-                if os.path.isfile(str(temp_path)):
+                if temp_path.is_file():
                     video = VideoFileClip(str(temp_path))
                     video.write_videofile(str(output_clip_path), verbose=False, logger=None)
                     temp_path.unlink()
                 else:
-                    print('No clips created')
+                    logger.error('No clips created')
             else:
                 temp_paths = []
-                temp_path_start, temp_path_end = None, None
+                temp_path_start, temp_path_end = Path(), Path()
                 if clip_start:
                     temp_path_start = output_video_dir / 'temp_start.mp4'
                     record_video(
@@ -209,7 +207,7 @@ def process_video_clips(
                         clip_start[0],
                         str(temp_path_start),
                         clip_start[1],
-                        None
+                        None,
                     )
                     temp_paths.append(temp_path_start)
                 if clip_end:
@@ -221,18 +219,19 @@ def process_video_clips(
                         clip_end[0],
                         str(temp_path_end),
                         1,
-                        clip_end[1]
+                        clip_end[1],
                     )
                     temp_paths.append(temp_path_end)
-                if os.path.isfile(str(temp_path_start)) and os.path.isfile(str(temp_path_end)):
+                # if os.path.isfile(str(temp_path_start)) and os.path.isfile(str(temp_path_end)):
+                if temp_path_start.is_file() and temp_path_end.is_file():
                     concatenate_clips(temp_paths, output_clip_path)
-                elif bool(os.path.isfile(str(temp_path_start))) != bool(os.path.isfile(str(temp_path_end))):
+                elif bool(temp_path_start.is_file()) != bool(temp_path_end.is_file()):
                     video = VideoFileClip(str(temp_paths[0]))
                     video.write_videofile(str(output_clip_path), verbose=False, logger=None)
                     for path in temp_paths:
                         path.unlink()
                 else:
-                    print('No clips created')
+                    logger.error('No clips created')
 
             timestamp_datetime = datetime.strptime(EVENT_DATE, '%Y-%m-%d %H:%M:%S') + timedelta(seconds=timestamp)
 
@@ -243,9 +242,9 @@ def process_video_clips(
                 test_drives.append(TestDrive(
                     id=test_drive_id,
                     lot_id=lot_id,
-                    space_number=int(space),
+                    space_number=int(space_int),
                     start_time=test_drive_start['event_timestamp'],
-                    end_time=timestamp_datetime
+                    end_time=timestamp_datetime,
                 ))
                 test_drive_start = {}
                 test_drive_number += 1
@@ -260,9 +259,9 @@ def get_video_clips(
         output_video_dir: Path,
         lot_id: uuid.UUID,
         offset: int = 15,
-        clip_duration: int = 30
+        clip_duration: int = 30,
 ) -> list[TestDrive]:
-    print('Get video clips of test drives...')
+    logger.info('Get video clips of test drives...')
 
     clip_time_params = {}
     for video_path, timestamp in video_time.items():
@@ -282,7 +281,8 @@ def get_video_clips(
         output_video_dir,
         lot_id,
         timestamp_offset=offset,
-        clip_duration=clip_duration
+        clip_duration=clip_duration,
     )
-
+    logger.info('Number of test drives: %s', len(test_drives))
+    logger.info('Test drives detected!\n')
     return test_drives
