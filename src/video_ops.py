@@ -18,6 +18,4 @@ class VideoFile:
             _, image_bytes = cv2.imencode('.png', frame)
             return image_bytes.tobytes()
         except cv2.error:
-            print(self._file_path)
             return None
-

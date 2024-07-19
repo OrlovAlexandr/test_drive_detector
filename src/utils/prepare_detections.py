@@ -1,11 +1,11 @@
-from typing import List, Tuple
-
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import Parallel
+from joblib import delayed
 from sklearn.cluster import DBSCAN
 
-from src.image_ops import get_center_points, vertices_in_polygon
+from src.image_ops import get_center_points
+from src.image_ops import vertices_in_polygon
 
 
 # Filter close points in one frame function
@@ -19,17 +19,13 @@ def process_frame(timestamp: float, df: pd.DataFrame, eps: float = 10, min_sampl
     timestamp_data.loc[:, 'cluster'] = db.labels_
 
     # Save one point from each cluster with maximum confidence
-    clustered_data = timestamp_data.groupby('cluster').apply(lambda x: x.loc[x['confidence'].idxmax()])
-    return clustered_data
+    return timestamp_data.groupby('cluster').apply(lambda x: x.loc[x['confidence'].idxmax()])
 
 
 # Function for parallel processing
 def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples: int = 1,
                                  n_jobs: int = -1) -> pd.DataFrame:
-    """
-    Parallel processing of process_frame function.
-    """
-
+    """Parallel processing of process_frame function."""
     # Get unique timestamps from dataframe
     timestamps = df['timestamp'].unique()
 
@@ -39,19 +35,11 @@ def filter_close_points_parallel(df: pd.DataFrame, eps: float = 10, min_samples:
                 for timestamp in timestamps))
 
     # Concatenate results into one dataframe
-    filtered_df = pd.concat(results).reset_index(drop=True)
-    return filtered_df
+    return pd.concat(results).reset_index(drop=True)
 
 
-def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int, int]]) -> pd.DataFrame:
-    """Prepare detections. Change bbox coordinates to center coordinates and filter close points.
-    Args:
-        detections (np.ndarray): array with detections
-        parking_vertices (List[Tuple[int, int]]): list with parking vertices
-
-    Returns:
-        pd.DataFrame: dataframe with filtered points
-    """
+def prepare_detections(detections: np.ndarray, parking_vertices: list[tuple[int, int]]) -> pd.DataFrame:
+    """Prepare detections. Change bbox coordinates to center coordinates and filter close points."""
     # Get the center points from the bbox coordinates
     centers = get_center_points(detections[:, 3:7])
 
@@ -71,10 +59,8 @@ def prepare_detections(detections: np.ndarray, parking_vertices: List[Tuple[int,
     df_filtered['inside_polygon'] = vertices_in_polygon(points, parking_vertices)
 
     # Filter points that are inside the polygon
-    df_filtered = df_filtered[df_filtered['inside_polygon'] == True][['timestamp', 'frame',
+    df_filtered = df_filtered[df_filtered['inside_polygon'] == True][['timestamp', 'frame',  # noqa: E712
                                                                       'confidence', 'cx', 'cy',
                                                                       'x1', 'y1', 'x2', 'y2']].reset_index(drop=True)
-
     df_filtered['timestamp_ord'] = pd.factorize(df_filtered['timestamp'])[0] + 1
-
     return df_filtered

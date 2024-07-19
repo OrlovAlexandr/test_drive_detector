@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-JSON_DATABASE_FILE = Path('./parking_lots.json')
+
+JSON_DATABASE_FILE = Path('.parking_lots.json')
 
 
 class ParkingLotState(enum.StrEnum):

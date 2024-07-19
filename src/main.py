@@ -21,7 +21,9 @@ from src.test_drive import TestDriveRegistry
 
 
 INBOX_DIRECTORY = Path('./inbox')
+INBOX_DIRECTORY.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIRECTORY = Path('./output')
+OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 HUMAN_READABLE_DATE_TIME_FORMAT = '%d.%m.%Y %H:%M:%S'
 HUMAN_READABLE_DATE_FORMAT = '%d.%m.%Y'
@@ -325,7 +327,7 @@ class TestDriveDetector:
         )
         for test_drive in detected_test_drives:
             self._test_drive_registry.add_test_drive(test_drive)
-        # self._test_drive_registry.commit()
+        self._test_drive_registry.commit()
         ui.notify('Завершено обнаружение тест-драйвов', position='top-right', type='positive')
 
 
@@ -411,7 +413,7 @@ async def detection_page():
                     'space': test_drive.space_number,
                     'start': test_drive.start_time.strftime(HUMAN_READABLE_DATE_TIME_FORMAT),
                     'end': test_drive.end_time.strftime(HUMAN_READABLE_DATE_TIME_FORMAT),
-                    'duration': str(test_drive.end_time - test_drive.start_time),
+                    'duration': str(test_drive.end_time - test_drive.start_time).split('.')[0],
                     'replay_link': f'/test-drive/{test_drive.id}',
                 }
                 for test_drive in test_drive_registry.list_all_test_drives()
@@ -465,11 +467,10 @@ async def replay(test_drive_id: str):
 
 @ui.page(path='/')
 async def root_page():
-    # return RedirectResponse('/test-drive/fe1da530-f829-4ddb-8712-6e76f36595cd')
     return RedirectResponse('/setup')
 
 
-app.add_media_files(url_path='../output', local_directory='output')
+app.add_media_files(url_path='/output', local_directory='output')
 ui.run(
     title='Test drive detector',
     host='0.0.0.0',  # noqa: S104

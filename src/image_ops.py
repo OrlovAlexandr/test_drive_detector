@@ -3,7 +3,8 @@ from collections.abc import Iterable
 
 import cv2
 import numpy as np
-from shapely import Polygon, Point
+from shapely import Point
+from shapely import Polygon
 
 from src.parking_lot import ParkingSpace
 
@@ -104,7 +105,7 @@ def draw_parking_lot_map(
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
                 (0, 255, 255),
-                1
+                1,
             )
 
     _, image_bytes = cv2.imencode('.png', image)
@@ -127,10 +128,8 @@ def vertices_in_polygon(points: np.ndarray, polygon: list[tuple[float, float]]) 
 
 def get_center_points(vertices: np.ndarray) -> np.ndarray:
     """Get the center points of a xyxy numpy array."""
-    center_xy = np.array([(vertices[:, 0] + vertices[:, 2]) / 2,
-                          (vertices[:, 1] + vertices[:, 3]) / 2]).transpose()
-
-    return center_xy
+    return np.array([(vertices[:, 0] + vertices[:, 2]) / 2,
+                     (vertices[:, 1] + vertices[:, 3]) / 2]).transpose()
 
 
 def bytes_to_b64_embedded_image(image_bytes: bytes) -> str:
