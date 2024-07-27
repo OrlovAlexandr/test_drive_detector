@@ -18,27 +18,8 @@ logger = logging.getLogger(__name__)
 
 EVENT_DATE = '2024-06-15 8:00:00'
 
-lots_states_input = {1: [(82.4, False), (93.76, True), (242.68, False), (275.24, True)],
-                     2: [(35.76, False), (64.2, True)],
-                     3: [(192.4, False), (319.0, True)],
-                     4: [(93.76, False), (142.88, True)]}
-
-lot_id_input = uuid.UUID('9e735f82-ae44-44f8-8bf6-dbba8eac59ec')
-
 CLIP_DURATION = 30
 CLIP_TIME_EVENT_OFFSET = 10
-
-video_file_time = {'C:\\DataScience\\diploma\\coding\\test_drives_app\\test_drive2\\test_drive\\inbox\\6a1dd957-7107'
-                   '-452e-b5d6-682120252e01.mp4': 0,
-                   'C:\\DataScience\\diploma\\coding\\test_drives_app\\test_drive2\\test_drive\\inbox\\9e735f82-ae44'
-                   '-44f8-8bf6-dbba8eac59ec.mp4': 144.84}
-
-CLIP_OUTPUT_DIR = 'C:\\DataScience\\diploma\\coding\\test_drives_app\\test_drive2\\test_drive\\output\\'
-
-parking_spaces_input = {1: {'cx': 689.7065124511719, 'cy': 949.7620544433594, 'radius': 44.26866149902344},
-                        2: {'cx': 647.3283233642578, 'cy': 828.151611328125, 'radius': 34.8760986328125},
-                        3: {'cx': 599.9935760498047, 'cy': 744.5437622070312, 'radius': 38.10131072998047},
-                        4: {'cx': 562.7674713134766, 'cy': 666.0435028076172, 'radius': 25.157257080078125}}
 
 
 @dataclass
@@ -314,22 +295,3 @@ def save_clips_to_videos(
     for one_clip in list_of_clips:
         one_clip.save_to_video(video_output_dir, parking_spaces,
                                sorted_lots_states, compress)
-
-
-if __name__ == '__main__':
-    test_drives_list = get_test_drives(lots_states_input, lot_id_input)
-    for td in test_drives_list:
-        logger.info(td)
-        start_time_sec = TimeConvert.from_datetime(td.start_time, EVENT_DATE)
-        logger.info('start_time_sec: %s', start_time_sec)
-
-    clips_list = get_clips_list(test_drives_list, video_file_time)
-    for clip in clips_list:
-        logger.info(clip.clip)
-
-    save_clips_to_videos(
-        clips_list,
-        Path(CLIP_OUTPUT_DIR),
-        parking_spaces_input,
-        lots_states_input,
-        compress=False)
