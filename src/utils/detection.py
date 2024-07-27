@@ -73,22 +73,16 @@ def detect(video_path: str,
     detections = np.empty((0, 7), float)  # [frame, class, conf, x1, y1, x2, y2]
     duration_of_range = int(duration_in_frames - frame_range[0])
     progress_bar = iter(tqdm(range(duration_of_range)))
-
     while True:
         ret, frame = cap.read()
-
         if not ret:
             break
-
         frame_number = cap.get(cv2.CAP_PROP_POS_FRAMES)
-
         if frame_number > frame_range[1]:
             break
         if frame_number % every_n_frame == 0:
-
             # Crop frame
             frame_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
-
             # Detect objects
             results = model.predict(frame_crop, classes=[2, 5, 6, 7], verbose=False)
 
@@ -104,7 +98,6 @@ def detect(video_path: str,
                 frame_result = torch.cat((fill_frame_number, cls, conf, xyxy), dim=1).cpu().numpy()
                 # Return to original coordinates after cropping
                 frame_result[:, [3, 4, 5, 6]] += [crop_x1, crop_y1, crop_x1, crop_y1]
-
             detections = np.vstack((detections, frame_result))
         next(progress_bar)
 

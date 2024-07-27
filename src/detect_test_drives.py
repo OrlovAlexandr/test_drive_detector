@@ -6,8 +6,10 @@ import cv2
 
 from src.utils.detection import detect_objects
 from src.utils.detection import get_video_time_creation
+from src.utils.get_clips_from_events import get_clips_list
+from src.utils.get_clips_from_events import get_test_drives
+from src.utils.get_clips_from_events import save_clips_to_videos
 from src.utils.get_test_drive_events import get_test_drive_events
-from src.utils.get_video_clips import get_video_clips
 from src.utils.recalibrate_spaces import recalibrate_spaces
 
 
@@ -21,7 +23,8 @@ def detect_test_drives(
         parking_spaces: dict[int, dict[str, float]],
         lot_id: uuid.UUID,
         output_video_dir: Path,
-        time_offset: int = 15,
+        clip_duration: int = 30,  # noqa: ARG001
+        time_offset: int = 10,  # noqa: ARG001
 ):
     # Convert parking polygon and parking spaces to pixels
     cap = cv2.VideoCapture(video_paths[0])
@@ -41,9 +44,10 @@ def detect_test_drives(
     detections = detect_objects(video_time, parking_polygon_pixels)
     recalibrated_spaces = recalibrate_spaces(detections, parking_spaces_pixels)
     lots_states = get_test_drive_events(detections, recalibrated_spaces)
-    return get_video_clips(video_time,
-                           recalibrated_spaces,
-                           lots_states,
-                           output_video_dir,
-                           lot_id=lot_id,
-                           offset=time_offset)
+    test_drives = get_test_drives(lots_states, lot_id)
+    clips = get_clips_list(test_drives, video_time)
+    save_clips_to_videos(clips, output_video_dir, parking_spaces_pixels, lots_states, compress=False)
+    logger.info('Video time: \n%s', video_time)
+    logger.info('Lots states: \n%s', lots_states)
+
+    return test_drives
