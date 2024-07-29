@@ -46,8 +46,12 @@ def detect_test_drives(
     lots_states = get_test_drive_events(detections, recalibrated_spaces)
     test_drives = get_test_drives(lots_states, lot_id)
     clips = get_clips_list(test_drives, video_time)
-    save_clips_to_videos(clips, output_video_dir, parking_spaces_pixels, lots_states, compress=False)
-    logger.info('Video time: \n%s', video_time)
-    logger.info('Lots states: \n%s', lots_states)
+    save_clips_to_videos(
+        clips,
+        output_video_dir,
+        parking_spaces_pixels,
+        lots_states,
+        compress=True,
+    )
 
     return test_drives

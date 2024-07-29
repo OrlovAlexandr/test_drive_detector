@@ -24,13 +24,13 @@ def calibrate_ranges(df: pd.DataFrame,
 
     # Filter ranges with more than 5 seconds
     long_ranges = [
-        range
-        for range in ranges
-        if range[1] - range[0] > limit_range
+        _range
+        for _range in ranges
+        if _range[1] - _range[0] > limit_range
     ]
 
     # Get start and end of each calibration
-    calibrate_ranges = []
+    calibration_ranges = []
     for long_range in long_ranges:
         # Get start and end of calibration based on mean
         long_range_mean = (long_range[0] + long_range[1]) / 2
@@ -40,7 +40,7 @@ def calibrate_ranges(df: pd.DataFrame,
         # Find start and end of calibration based on real timestamp
         find_calibration_start = df[df['timestamp'] <= calibrate_start]['timestamp'].max()
         find_calibration_end = df[df['timestamp'] >= calibrate_end]['timestamp'].min()
-        calibrate_ranges.append((find_calibration_start, find_calibration_end))
+        calibration_ranges.append((find_calibration_start, find_calibration_end))
 
         # Choose detections range for calibration
         df_calibration = df.copy()
@@ -49,21 +49,21 @@ def calibrate_ranges(df: pd.DataFrame,
 
         # Get parking spaces with each radius
         df_spaces_new = get_parking_spaces(df_calibration, eps=15, threshold=0.9)
+        if df_spaces_new.shape[0] == parking_spaces_df.shape[0]:
+            # Add parking spaces order
+            if parking_orientation is ParkingOrientation.LEFT_TO_RIGHT:
+                df_spaces_new = df_spaces_new.sort_values(by='cx').reset_index(drop=True)
+            else:
+                df_spaces_new = df_spaces_new.sort_values(by='cy', ascending=False).reset_index(drop=True)
 
-        # Add parking spaces order
-        if parking_orientation is ParkingOrientation.LEFT_TO_RIGHT:
-            df_spaces_new = df_spaces_new.sort_values(by='cx').reset_index(drop=True)
-        else:
-            df_spaces_new = df_spaces_new.sort_values(by='cy', ascending=False).reset_index(drop=True)
+            # Add timestamp
+            df_spaces_new = df_spaces_new.reset_index(names='space')
+            df_spaces_new['space'] += 1
+            df_spaces_new['timestamp'] = long_range[0]
+            df_spaces_new['timestamp_ord'] = df[df['timestamp'] == long_range[0]]['timestamp_ord'].min()
 
-        # Add timestamp
-        df_spaces_new = df_spaces_new.reset_index(names='space')
-        df_spaces_new['space'] += 1
-        df_spaces_new['timestamp'] = long_range[0]
-        df_spaces_new['timestamp_ord'] = df[df['timestamp'] == long_range[0]]['timestamp_ord'].min()
-
-        # Append results to dataframe
-        df_spaces = pd.concat([df_spaces, df_spaces_new], ignore_index=True)
+            # Append results to dataframe
+            df_spaces = pd.concat([df_spaces, df_spaces_new], ignore_index=True)
 
     if df_spaces.shape[0] == 0:
         parking_spaces_df = parking_spaces_df.reset_index(names='space').convert_dtypes()

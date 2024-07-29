@@ -290,7 +290,10 @@ def save_clips_to_videos(
         lots_states: dict[int, list[tuple[float, bool]]],
         compress: bool = False,
 ) -> None:
-    lots_states_with_zero = {key: [(0.0, not value[0][1]), *value] for key, value in lots_states.items()}
+    lots_states_with_zero = {
+        key: [(0.0, not value[0][1]), *value] if len(value) > 0 else [(0.0, True)]
+        for key, value in lots_states.items()
+    }
     sorted_lots_states = {key: sorted(value, key=lambda x: x[0]) for key, value in lots_states_with_zero.items()}
     for one_clip in list_of_clips:
         one_clip.save_to_video(video_output_dir, parking_spaces,
