@@ -76,7 +76,7 @@ def calibrate_ranges(df: pd.DataFrame,
     return df_spaces
 
 
-def get_full_lot_ranges(timestamps: list[int], max_gap: int = 3) -> list[tuple[int, int]]:
+def get_full_lot_ranges(timestamps: list[int], max_gap: int = 10) -> list[tuple[int, int]]:
     """Find ranges with more than full parking lot."""
     ranges = []
     start_time = timestamps[0]

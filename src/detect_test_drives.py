@@ -54,4 +54,5 @@ def detect_test_drives(
         compress=True,
     )
 
+    logger.info('Detection finished!')
     return test_drives
