@@ -124,16 +124,7 @@ class ParkingLot:
 
 class ParkingLotRepository:
     def __init__(self) -> None:
-        self._lots: dict[uuid.UUID, ParkingLot] = {
-            uuid.UUID('802b546a-2653-4c1f-b912-821dfdbf7f3d'): ParkingLot(
-                id=uuid.UUID('802b546a-2653-4c1f-b912-821dfdbf7f3d'),
-                name='Северный пролёт гусей',
-                active_zone_video='',
-                state=ParkingLotState.PENDING_SETUP_ACTIVE_ZONE,
-                active_zone=[],
-                spaces=[],
-            ),
-        }
+        self._lots: dict[uuid.UUID, ParkingLot] = {}
         self._try_load_from_file()
 
     def _save_to_file(self) -> None:

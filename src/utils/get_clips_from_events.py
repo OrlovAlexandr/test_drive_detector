@@ -179,7 +179,9 @@ class Clip:
                 cv2.rectangle(frame, (8, 8), (310, 35), (0, 255, 255), -1)
                 cv2.putText(frame, str(current_time_dt), (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                cv2.imshow('frame', frame)
+
+                frame_hd = cv2.resize(frame, (1280, 720))
+                cv2.imshow('frame', frame_hd)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
